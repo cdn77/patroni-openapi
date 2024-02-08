@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: Patroni API
+  version: "1.0.0"
+  description: |
+    [docs](https://patroni.readthedocs.io/en/latest/rest_api.html) [source](https://raw.githubusercontent.com/zalando/patroni/master/docs/rest_api.rst)
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+paths:
+  /:
+    get: &primary_with_leader_lock
+      tags:
+        - Health Check
+      summary: Find status of the node
+      description: |
+        For all health check `GET` requests Patroni returns a JSON document with the status of the node, along with the HTTP status code. If you don't want or don't need the JSON document, you might consider using the `HEAD` or `OPTIONS` method instead of `GET`.
+      responses:
+        "200":
+          description: Patroni node is running as the primary with leader lock
+          content: &response_content_Cluster
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ClusterMasterResponse"
+                  - $ref: "#/components/schemas/ClusterReplicaResponse"
+        "503":
+          description: Patroni node is not running as the primary with leader lock
+          content: *response_content_Cluster
+  /primary:
+    get: *primary_with_leader_lock
+  /read-write:
+    get: *primary_with_leader_lock
+  /standby-leader:
+    get:
+      tags:
+        - Health Check
+      responses:
+        "200":
+          description: Patroni node is running as the leader in a standby cluster
+          content: *response_content_Cluster
+        "503":
+          description: Patroni node is not running as the leader in a standby cluster
+          content: *response_content_Cluster
+  /leader:
+    get:
+      tags:
+        - Health Check
+      description: |
+        The major difference from the two previous endpoints is that it doesn't take into account whether PostgreSQL is running as the `primary` or the `standby_leader`.
+      responses:
+        "200":
+          description: Patroni node has the leader lock.
+          content: *response_content_Cluster
+        "503":
+          description: Patroni node does not have the leader lock.
+          content: *response_content_Cluster
+  /replica:
+    get:
+      tags:
+        - Health Check
+      summary: Replica health check endpoint
+      responses:
+        "200":
+          description: Patroni node is in the state `running`, the role is `replica` and `noloadbalance` tag is not set.
+          content: *response_content_Cluster
+        "503":
+          description: Patroni node is not in the state `running`, the role is not `replica` or `noloadbalance` tag is set.
+          content: *response_content_Cluster
+  /monitoring:
+    get:
+      tags:
+        - Monitoring
+      summary: Replica health check endpoint
+      responses:
+        "200":
+          description: Cluster state
+          content: *response_content_Cluster
+        "503":
+          description: Cluster state
+          content: *response_content_Cluster
+
+components:
+  schemas:
+    ClusterResponse:
+      title: ClusterResponse
+      type: object
+      properties:
+        state:
+          type: string
+          enum:
+            - "stopping"
+            - "stopped"
+            - "stop failed"
+            - "crashed"
+            - "running"
+            - "starting"
+            - "start failed"
+            - "restarting"
+            - "restart failed"
+            - "initializing new cluster"
+            - "initdb failed"
+            - "running custom bootstrap script"
+            - "custom bootstrap failed"
+            - "creating replica"
+            - "unknown"
+          example: "running"
+        postmaster_start_time:
+          type: string
+          example: "2024-01-30 12:07:41.169150+00:00"
+        role:
+          type: string
+          enum:
+            - "master"
+            - "replica"
+          example: "replica"
+        server_version:
+          type: integer
+          example: 160001
+        timeline:
+          type: integer
+          example: 10
+        dcs_last_seen:
+          type: integer
+          example: 1707407710
+        database_system_identifier:
+          type: string
+          example: "7280595890593055176"
+        patroni:
+          type: object
+          properties:
+            version:
+              type: string
+              example: "3.2.1"
+            scope:
+              type: string
+              example: "monitoring"
+            name:
+              type: string
+              example: "monitoring-patroni-2-169-150-255-6"
+    ClusterMasterResponse:
+      title: ClusterMasterResponse
+      allOf:
+        - $ref: "#/components/schemas/ClusterResponse"
+        - type: object
+          properties:
+            xlog:
+              type: object
+              properties:
+                location:
+                  type: string
+                  example: 10A/8D893758
+            replication:
+              type: array
+              items:
+                type: object
+                properties:
+                  username:
+                    type: string
+                    example: "patroni-replicator"
+                  application_name:
+                    type: string
+                    example: "monitoring-patroni-3-169-150-245-38"
+                  client_addr:
+                    type: string
+                    example: "1.2.3.4"
+                  state:
+                    type: string
+                    example: "streaming"
+                  sync_state:
+                    type: string
+                    example: "sync"
+                  sync_priority:
+                    type: integer
+                    example: 1
+    ClusterReplicaResponse:
+      title: ClusterReplicaResponse
+      allOf:
+        - $ref: "#/components/schemas/ClusterResponse"
+        - type: object
+          properties:
+            xlog:
+              type: object
+              properties:
+                received_location:
+                  type: integer
+                  example: 1051412652032
+                replayed_location:
+                  type: integer
+                  example: 1051412651976
+                replayed_timestamp:
+                  type: string
+                  example: "2024-02-08 15:55:12.149477+00:00"
+                paused:
+                  type: boolean
+                  example: false
+            replication_state:
+              type: string
+              example: "streaming"
