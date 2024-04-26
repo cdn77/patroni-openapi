@@ -178,9 +178,9 @@ paths:
         "202":
           description: Switchover successfully scheduled
         "400":
-          description: Something went wrong
+          description: Invalid request
         "412":
-          description: Something went wrong
+          description: Incompatible cluster state or switchover params
         "503":
           description: Something went wrong
 
