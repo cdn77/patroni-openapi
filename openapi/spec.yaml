@@ -219,7 +219,6 @@ components:
           type: string
           enum:
             - "demoted"
-            - "master"
             - "primary"
             - "replica"
             - "standby_leader"
