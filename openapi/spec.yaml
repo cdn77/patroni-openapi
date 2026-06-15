@@ -220,6 +220,7 @@ components:
           enum:
             - "demoted"
             - "master"
+            - "primary"
             - "replica"
             - "standby_leader"
             - "uninitialized"
